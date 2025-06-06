@@ -1,0 +1,69 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar se é o próprio usuário
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Função para validar imagens
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024 && // máximo 5MB
+             request.resource.contentType.matches('image/.*');
+    }
+    
+    // ===== REGRAS PRINCIPAIS =====
+    
+    // Imagens de perfil dos usuários
+    match /profile_images/{userId}/{imageId} {
+      allow read: if isAuthenticated(); // Usuários autenticados podem ver imagens de perfil
+      allow write: if isOwner(userId) && isValidImage();
+      allow delete: if isOwner(userId);
+    }
+    
+    // Pasta específica para cada usuário
+    match /users/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId) && isValidImage();
+      allow delete: if isOwner(userId);
+    }
+    
+    // NOTA: Estas regras são mantidas para referência
+    // O projeto atual usa armazenamento base64 no Firestore
+    // Para reativar o Firebase Storage, descomente e ajuste conforme necessário
+    
+    // Regra de segurança padrão - nega acesso a tudo mais
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+// ========================================
+// OBSERVAÇÕES IMPORTANTES:
+// ========================================
+//
+// 1. STORAGE DESABILITADO: O projeto atual não usa Firebase Storage
+//    As imagens são armazenadas em base64 diretamente no Firestore
+//
+// 2. PARA REATIVAR STORAGE:
+//    - Habilite Firebase Storage no console
+//    - Aplique estas regras
+//    - Modifique FirebaseService para usar Storage novamente
+//
+// 3. BENEFÍCIOS DO BASE64:
+//    - Não depende de serviços pagos
+//    - Simplicidade de implementação
+//    - Backup automático com Firestore
+//
+// 4. LIMITAÇÕES DO BASE64:
+//    - Tamanho limitado (recomendado < 1MB)
+//    - Aumenta o tamanho dos documentos
+//    - Transferência junto com outros dados
+// 

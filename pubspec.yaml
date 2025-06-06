@@ -1,0 +1,49 @@
+name: basal_fit_flutter
+description: "A new Flutter project."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.15.3
+  cloud_firestore: ^4.13.6
+  flutter_modular: ^6.3.3
+  intl: ^0.19.0
+  google_sign_in: ^6.2.1
+  flutter_facebook_auth: ^6.0.4
+  firebase_storage: ^11.6.0
+  image_picker: ^1.0.7
+  permission_handler: ^11.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_native_splash: ^2.3.10
+
+flutter:
+  uses-material-design: true
+
+flutter_native_splash:
+  # Background color que combina com a splash screen Flutter
+  color: "#1976D2"
+
+  # Cor para modo escuro
+  color_dark: "#0D47A1"
+
+  # Configurações para Android 12+
+  android_12:
+    color: "#1976D2"
+    color_dark: "#0D47A1"
+
+  # Remove splash nativo para iOS
+  ios: false
+
+  # Configurações da web
+  web: false

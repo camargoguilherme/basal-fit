@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para verificar se é o próprio usuário
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Função para validar dados do perfil do usuário
+    function isValidUserProfile() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['name', 'email', 'createdAt', 'updatedAt']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 150 &&
+             data.email is string && data.email.matches('.*@.*\\..*') &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp &&
+             (data.age == null || (data.age is number && data.age >= 13 && data.age <= 120)) &&
+             (data.weight == null || (data.weight is number && data.weight >= 15.0 && data.weight <= 450.0)) &&
+             (data.height == null || (data.height is number && data.height >= 45.0 && data.height <= 295.0)) &&
+             (data.gender == null || data.gender in ['Masculino', 'Feminino']) &&
+             (data.activityLevel == null || data.activityLevel in [
+               'Sedentário', 'Levemente Ativo', 'Moderadamente Ativo', 
+               'Muito Ativo', 'Extremamente Ativo'
+             ]) &&
+             (data.profileImageUrl == null || 
+              (data.profileImageUrl is string && 
+               (data.profileImageUrl.matches('data:image/.*') || data.profileImageUrl.matches('https?://.*'))));
+    }
+    
+    // Função para validar registros de peso
+    function isValidWeightRecord() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'weight', 'date', 'userId']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.weight is number && data.weight >= 15.0 && data.weight <= 450.0 &&
+             data.date is timestamp &&
+             data.userId is string && data.userId == request.auth.uid &&
+             (data.note == null || (data.note is string && data.note.size() <= 500));
+    }
+    
+    // Função para validar registros de exercício
+    function isValidExerciseRecord() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'exerciseId', 'duration', 'date', 'userId']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.exerciseId is string && data.exerciseId.size() > 0 &&
+             data.duration is number && data.duration > 0 && data.duration <= 1440 && // máximo 24 horas
+             data.date is timestamp &&
+             data.userId is string && data.userId == request.auth.uid &&
+             (data.caloriesBurned == null || (data.caloriesBurned is number && data.caloriesBurned >= 0)) &&
+             (data.note == null || (data.note is string && data.note.size() <= 500));
+    }
+    
+    // Função para validar registros de TMB
+    function isValidTMBRecord() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'tmb', 'get', 'date', 'userId']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.tmb is number && data.tmb >= 800 && data.tmb <= 4000 &&
+             data.get is number && data.get >= 1000 && data.get <= 8000 &&
+             data.date is timestamp &&
+             data.userId is string && data.userId == request.auth.uid &&
+             (data.weight == null || (data.weight is number && data.weight >= 15.0 && data.weight <= 450.0)) &&
+             (data.height == null || (data.height is number && data.height >= 45.0 && data.height <= 295.0)) &&
+             (data.age == null || (data.age is number && data.age >= 13 && data.age <= 120)) &&
+             (data.gender == null || data.gender in ['Masculino', 'Feminino']) &&
+             (data.activityLevel == null || data.activityLevel in [
+               'Sedentário', 'Levemente Ativo', 'Moderadamente Ativo', 
+               'Muito Ativo', 'Extremamente Ativo'
+             ]);
+    }
+    
+    // Função para validar exercícios
+    function isValidExercise() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['id', 'name', 'category', 'caloriesPerMinute']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
+             data.caloriesPerMinute is number && data.caloriesPerMinute >= 0 && data.caloriesPerMinute <= 50 &&
+             (data.description == null || (data.description is string && data.description.size() <= 500));
+    }
+    
+    // ===== REGRAS PRINCIPAIS =====
+    
+    // Perfis de usuário
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile();
+      allow update: if isOwner(userId) && isValidUserProfile();
+      allow delete: if isOwner(userId);
+      
+      // Subcoleções do usuário
+      match /weight_records/{recordId} {
+        allow read, write: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidWeightRecord();
+      }
+      
+      match /exercise_records/{recordId} {
+        allow read, write: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidExerciseRecord();
+      }
+      
+      match /tmb_records/{recordId} {
+        allow read, write: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidTMBRecord();
+      }
+    }
+    
+    // Exercícios (coleção pública para leitura, autenticados podem criar/editar)
+    match /exercises/{exerciseId} {
+      allow read: if true; // Qualquer um pode ler exercícios
+      allow create: if isAuthenticated() && isValidExercise();
+      allow update: if isAuthenticated() && isValidExercise();
+      allow delete: if isAuthenticated(); // Somente usuários autenticados podem deletar
+    }
+    
+    // Regra de segurança padrão - nega acesso a tudo mais
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
